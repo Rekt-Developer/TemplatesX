@@ -1,3 +1,5 @@
+name: Website Template Automation
+
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +12,7 @@ on:
         description: 'Run tests after modification'
         required: false
         type: boolean
-        default: true
+        default: false
 
 jobs:
   modify-templates:
@@ -35,74 +37,32 @@ jobs:
         working-directory: main-repo
         run: |
           python -m pip install --upgrade pip
-          pip install gitpython beautifulsoup4 pytest requests
+          pip install gitpython beautifulsoup4
 
-      - name: Detect default branch and clone templates
+      - name: Clone templates repository into a folder
         id: clone-repo
         run: |
-          # Extract owner and repo name from URL
           REPO_URL="${{ inputs.git-url }}"
-          REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\1/')
-          REPO_NAME=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\2/' | sed 's/.git$//')
           
-          # Use GitHub API to get default branch
-          DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME" | grep -o '"default_branch": "[^"]*' | cut -d'"' -f4)
-          
-          if [ -z "$DEFAULT_BRANCH" ]; then
-            echo "::error::Failed to detect default branch for repository: $REPO_URL"
-            exit 1
-          fi
-          
-          echo "Default branch is: $DEFAULT_BRANCH"
-          echo "default_branch=$DEFAULT_branch" >> $GITHUB_OUTPUT
-          
-          # Clone the templates repository into a specific folder
-          git clone --depth 1 --branch "$DEFAULT_BRANCH" "$REPO_URL" "templates-folder"
+          # Clone the repository into a folder (e.g., templates-repo)
+          git clone --depth 1 "$REPO_URL" templates-repo
           
           if [ $? -ne 0 ]; then
             echo "::error::Failed to clone repository: $REPO_URL"
             exit 1
           fi
 
-      - name: Copy Python script
+      - name: Copy specific files from the templates folder to the root
         run: |
-          cp main-repo/clone_and_add_ads.py ./clone_and_add_ads.py
-          chmod +x clone_and_add_ads.py
+          # Copy index.html, .md files, and .github workflows to the root
+          cp templates-repo/index.html main-repo/ || echo "index.html not found"
+          cp templates-repo/*.md main-repo/ || echo "Markdown files not found"
+          cp -r templates-repo/.github main-repo/ || echo "GitHub workflows not found"
 
-      - name: Run template modification
-        id: modify
-        run: |
-          echo "Starting template modification process..."
-          python clone_and_add_ads.py "templates-folder"
-        env:
-          PYTHONUNBUFFERED: 1
-
-      - name: Run tests
-        if: inputs.run-tests == true
-        working-directory: main-repo
-        run: |
-          echo "Running tests..."
-          python -m pytest test_clone_and_add_ads.py -v
-        continue-on-error: true
-
-      - name: Configure Git
-        working-directory: main-repo
-        run: |
-          git config --global user.name "Rekt-Developer"
-          git config --global user.email "isaac.likhon@yahoo.com"
-
-      - name: Copy modified templates
-        run: |
-          # Copy specific files from the templates folder to the main-repo root, creating them if not found
-          cp -r templates-folder/index.html main-repo/index.html || touch main-repo/index.html
-          cp -r templates-folder/*.md main-repo/ || touch main-repo/README.md
-          cp -r templates-folder/.github/workflows main-repo/.github/workflows || mkdir -p main-repo/.github/workflows
-
-      - name: Check for changes
+      - name: Check for changes in the repository
         id: git-check
         working-directory: main-repo
         run: |
-          # Check for changes, handling missing files gracefully
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "changes=true" >> $GITHUB_OUTPUT
           else
@@ -120,13 +80,11 @@ jobs:
         if: steps.git-check.outputs.changes == 'true'
         working-directory: main-repo
         run: |
+          git config --global user.name "Rekt-Developer"
+          git config --global user.email "isaac.likhon@yahoo.com"
           git commit -m "feat: Add advertisement placeholders to templates
-
           - Added responsive ad containers
-          - Automated via GitHub Actions
-          - Repository: ${{ inputs.git-url }}
-          - Branch: ${{ steps.clone-repo.outputs.default_branch }}
-          - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          - Automated via GitHub Actions"
           
           git push origin ${{ github.ref_name }}
           
@@ -135,24 +93,17 @@ jobs:
             exit 1
           fi
 
+
       - name: Create status report
         if: always()
         run: |
           {
             echo "### Template Modification Report"
             echo "- Repository: ${{ inputs.git-url }}"
-            echo "- Default Branch: ${{ steps.clone-repo.outputs.default_branch }}"
             echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
             echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}"
-            
             if [[ "${{ steps.git-check.outputs.changes }}" == "true" ]]; then
               echo "- Modified Files:"
               git diff --name-only HEAD~1 HEAD | sed 's/^/  - /'
-            fi
-            
-            if [[ "${{ inputs.run-tests }}" == "true" ]]; then
-              echo "- Tests Executed: Yes"
-            else
-              echo "- Tests Executed: No"
             fi
           } >> $GITHUB_STEP_SUMMARY
