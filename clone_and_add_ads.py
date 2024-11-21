@@ -59,12 +59,24 @@ class WebsiteTemplateModifier:
             
             logger.info(f"Cloning repository from {self.git_url}")
             git.Repo.clone_from(self.git_url, self.repo_path)
+            self.update_submodules()  # Ensure submodules are updated after cloning
             return self.repo_path
             
         except Exception as e:
             logger.error(f"Failed to clone repository: {str(e)}")
             raise
-    
+            
+    def update_submodules(self):
+        """Update submodules if any."""
+        try:
+            repo = git.Repo(self.repo_path)  # Current repository
+            logger.info("Updating submodules...")
+            repo.submodule_update(init=True, recursive=True)
+            logger.info("Submodules updated successfully.")
+        except git.exc.GitCommandError as e:
+            logger.error(f"Error updating submodules: {e}")
+            raise
+
     def process_html_file(self, html_file: str) -> Tuple[bool, str]:
         """Process a single HTML file to add advertisements."""
         try:
@@ -139,14 +151,14 @@ def main():
         
         if not modified_files:
             logger.error("No files were modified")
-            sys.exit(1)
+            sys.exit(1)  # Exit with error code 1 if no files were modified
         
         logger.info("Process completed successfully!")
-        sys.exit(0)
+        sys.exit(0)  # Exit with success code 0
         
     except Exception as e:
         logger.error(f"Process failed: {str(e)}")
-        sys.exit(1)
+        sys.exit(1)  # Exit with error code 1 in case of failure
 
 if __name__ == "__main__":
     main()
