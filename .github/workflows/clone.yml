@@ -19,33 +19,26 @@ jobs:
         run: |
           git clone https://github.com/learning-zone/website-templates.git website-templates
 
-      # Step 3: Remove the submodule (if any) caused by the cloning
-      - name: Remove submodule (if any)
-        run: |
-          git rm --cached website-templates  # Remove the submodule
-          rm -rf .git/modules/website-templates  # Clean up git submodule metadata
-          git commit -m "Removed submodule reference to website-templates"
-
-      # Step 4: Add all files from the cloned repository
+      # Step 3: Add all files from the cloned repository
       - name: Stage files
         run: |
           git add -A  # Stage all files from the cloned repository
 
-      # Step 5: Commit changes to the repository
+      # Step 4: Commit changes to the repository
       - name: Commit changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git commit -m "Cloned website-templates into website-templates folder" || echo "No changes to commit"
 
-      # Step 6: Push changes to repository
+      # Step 5: Push changes to repository
       - name: Push changes to repository
         run: |
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # This allows the action to push changes to your repository
 
-      # Step 7: Add ads in all HTML files
+      # Step 6: Add ads in all HTML files
       - name: Add ads in all HTML files
         run: |
           # The ad code to be inserted
@@ -56,7 +49,7 @@ jobs:
           # Search for all HTML files and insert the ad code into each file
           find website-templates/ -name '*.html' -exec sed -i "/<\/body>/i <!-- Ads Section -->\n$ad_code\n$ad_code_2\n$ad_code_3\n" {} \;
 
-      # Step 8: Modify index.html for ads and placement info
+      # Step 7: Modify index.html for ads and placement info
       - name: Modify index.html for ads and placement info
         run: |
           # Ad code for index.html modification
@@ -67,7 +60,7 @@ jobs:
           # Modify index.html only, inserting the ad code and relevant details
           find website-templates/ -name 'index.html' -exec sed -i "/<\/body>/i $index_ad_code" {} \;
 
-      # Step 9: Add popup ad for joining Telegram group
+      # Step 8: Add popup ad for joining Telegram group
       - name: Add Popup Ad for Telegram Group Join
         run: |
           # Popup ad code for the Telegram group join prompt
@@ -82,7 +75,7 @@ jobs:
           # Insert the popup ad into each HTML file, ideally before the closing </body> tag
           find website-templates/ -name '*.html' -exec sed -i "/<\/body>/i $popup_ad_code" {} \;
 
-      # Step 10: Commit and Push Changes with Custom User Details
+      # Step 9: Commit and Push Changes with Custom User Details
       - name: Commit and Push Changes
         run: |
           git config --global user.name "Rekt-Developer"
