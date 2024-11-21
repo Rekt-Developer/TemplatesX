@@ -1,4 +1,4 @@
-name: Clone Website Templates
+name: Clone Website Templates into website-templates folder
 
 on:
   schedule:
@@ -14,10 +14,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Clone 'website-templates' repository into a folder called 'cloned-templates'
-      - name: Clone 'website-templates' repository
+      # Step 2: Clone 'website-templates' repository into the 'website-templates' folder
+      - name: Clone 'website-templates' repository into 'website-templates' folder
         run: |
-          git clone https://github.com/learning-zone/website-templates.git cloned-templates
+          git clone https://github.com/learning-zone/website-templates.git website-templates
 
       # Step 3: Set up Python environment
       - name: Set up Python
@@ -40,7 +40,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git add cloned-templates/ index.html
+          git add website-templates/ index.html
           git commit -m "Cloned website-templates and updated index.html"
           git push origin main
         env:
