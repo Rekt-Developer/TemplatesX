@@ -1,55 +1,93 @@
-name: Clone Website Templates and Add Ads
+name: Website Template Automation
 
 on:
-  workflow_dispatch:  # Allows manual triggering of the workflow with inputs
+  workflow_dispatch:
     inputs:
       git-url:
-        description: 'GitHub Repository URL to clone (Leave empty for default)'
-        required: false  # Optional input
-        default: 'https://github.com/learning-zone/website-templates.git'  # Default URL
+        description: 'GitHub Repository URL to clone'
+        required: false
+        default: 'https://github.com/learning-zone/website-templates.git'
+      run-tests:
+        description: 'Run tests after modification'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
-  clone-repository:
+  modify-templates:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+    
     steps:
-      # Step 1: Checkout the current repository (using latest actions/checkout version)
-      - name: Checkout Repository
-        uses: actions/checkout@v4  # Updated version of actions/checkout
-
-      # Step 2: Set up Python environment (using latest actions/setup-python version)
-      - name: Set up Python
-        uses: actions/setup-python@v4  # Updated version of actions/setup-python
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          python-version: '3.x'
-
-      # Step 3: Remove any submodule references if present
-      - name: Remove Submodule References (if any)
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
         run: |
-          git submodule deinit -f website-templates || echo "No submodule to deinit"
-          git rm --cached website-templates || echo "No submodule to remove"
-          rm -rf .git/modules/website-templates || echo "No submodule metadata to clean up"
-          git commit -m "Cleaned up submodule references" || echo "No submodule reference to commit"
-
-      # Step 4: Install dependencies and run the clone_and_add_ads.py script
-      - name: Install dependencies and run the script
-        run: |
-          # Install the required Python modules
           python -m pip install --upgrade pip
-          pip install gitpython
-          
-          # Run the Python script to clone and add ads
+          pip install gitpython beautifulsoup4 pytest
+      
+      - name: Run template modification
+        id: modify
+        run: |
+          echo "Starting template modification process..."
           python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
-
-      # Step 5: Commit and push changes to repository
-      - name: Commit and Push Changes
+      
+      - name: Run tests
+        if: inputs.run-tests == true
+        run: |
+          echo "Running tests..."
+          python -m pytest test_clone_and_add_ads.py -v
+      
+      - name: Configure Git
         run: |
           git config --global user.name "Rekt-Developer"
           git config --global user.email "isaac.likhon@yahoo.com"
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git add -A
+          git commit -m "feat: Add advertisement placeholders to templates
           
-          # Add all changes to git, commit, and push
-          git add .
-          git commit -m "Cloned and added ads to website-templates"
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          - Added responsive ad containers
+          - Automated via GitHub Actions
+          - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          git push origin ${{ github.ref }}
+      
+      - name: Clean up
+        if: always()
+        run: |
+          echo "Cleaning up temporary files..."
+          find . -type d -name "website-templates" -exec rm -rf {} +
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+      
+      - name: Create status report
+        if: always()
+        run: |
+          echo "### Template Modification Report" > $GITHUB_STEP_SUMMARY
+          echo "- Repository: ${{ github.event.inputs.git-url || 'Default templates repository' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.git-check.outputs.changes }}" == "true" ]]; then
+            echo "- Modified Files:" >> $GITHUB_STEP_SUMMARY
+            git diff --name-only HEAD~1 HEAD | sed 's/^/  - /' >> $GITHUB_STEP_SUMMARY
+          fi
