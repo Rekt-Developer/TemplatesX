@@ -135,14 +135,6 @@ jobs:
             exit 1
           fi
 
-      - name: Clean up
-        if: always()
-        run: |
-          echo "Cleaning up temporary files..."
-          rm -rf templates-folder
-          rm -rf clone_and_add_ads.py
-          find . -type d -name "__pycache__" -exec rm -rf {} +
-
       - name: Create status report
         if: always()
         run: |
