@@ -81,6 +81,11 @@
         .folder-card a:hover {
             background-color: #2980b9;
         }
+
+        .loading {
+            text-align: center;
+            margin-top: 50px;
+        }
     </style>
 </head>
 
@@ -91,29 +96,80 @@
         <p>Browse and Preview Various HTML5 Templates and Fork Your Favorite Ones</p>
     </header>
 
-    <div class="container">
-        <!-- Folder Preview Cards Will Go Here -->
-        
-        <!-- Example Folder Card -->
-        <div class="folder-card">
-            <img src="folder-thumbnail.jpg" alt="Folder Thumbnail">
-            <h3>Template Folder 1</h3>
-            <p>Discover a modern and sleek template with all the features you need.</p>
-            <a href="https://github.com/Rekt-Developer/TemplatesX/tree/main/folder1" target="_blank">View on GitHub</a>
-            <a href="https://rekt-developer.github.io/TemplatesX/folder1/index.html" target="_blank">Preview</a>
-        </div>
-
-        <div class="folder-card">
-            <img src="folder-thumbnail2.jpg" alt="Folder Thumbnail">
-            <h3>Template Folder 2</h3>
-            <p>Explore a creative portfolio template with minimal design.</p>
-            <a href="https://github.com/Rekt-Developer/TemplatesX/tree/main/folder2" target="_blank">View on GitHub</a>
-            <a href="https://rekt-developer.github.io/TemplatesX/folder2/index.html" target="_blank">Preview</a>
-        </div>
-
-        <!-- Dynamic folder content would be populated here -->
-
+    <div class="loading">
+        <p>Loading templates...</p>
     </div>
+
+    <div class="container" id="templates-container">
+        <!-- Template Cards Will Be Dynamically Added Here -->
+    </div>
+
+    <script>
+        const repoOwner = 'Rekt-Developer';
+        const repoName = 'TemplatesX';
+        const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
+
+        // Function to fetch and display folders and HTML files
+        async function fetchTemplates() {
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                const container = document.getElementById('templates-container');
+                const loadingMessage = document.querySelector('.loading');
+
+                // Hide loading message
+                loadingMessage.style.display = 'none';
+
+                data.forEach(item => {
+                    if (item.type === 'dir') {
+                        // For each folder (dir), create a card
+                        const folderCard = document.createElement('div');
+                        folderCard.classList.add('folder-card');
+                        folderCard.innerHTML = `
+                            <h3>${item.name}</h3>
+                            <p>Discover various templates inside the folder.</p>
+                            <a href="https://github.com/${repoOwner}/${repoName}/tree/main/${item.path}" target="_blank">View on GitHub</a>
+                            <a href="https://rekt-developer.github.io/${repoName}/${item.path}/index.html" target="_blank">Preview</a>
+                        `;
+                        container.appendChild(folderCard);
+
+                        // Fetch HTML files inside each folder
+                        fetchFolderContents(item.path);
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching templates:', error);
+            }
+        }
+
+        // Fetch folder contents (HTML files inside each folder)
+        async function fetchFolderContents(path) {
+            try {
+                const folderUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${path}`;
+                const response = await fetch(folderUrl);
+                const files = await response.json();
+
+                // Find the folder card corresponding to the current folder path
+                const folderCard = document.querySelector(`.folder-card a[href*="${path}"]`).parentElement;
+
+                // Look for HTML files and add them to the folder card
+                files.forEach(file => {
+                    if (file.name.endsWith('.html')) {
+                        const previewLink = document.createElement('a');
+                        previewLink.href = file.download_url;
+                        previewLink.textContent = `View ${file.name}`;
+                        previewLink.target = '_blank';
+                        folderCard.appendChild(previewLink);
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching folder contents:', error);
+            }
+        }
+
+        // Call the fetchTemplates function to load the templates
+        fetchTemplates();
+    </script>
 
 </body>
 
