@@ -1,0 +1,47 @@
+name: Clone Website Templates
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:  # Allows manual triggering of the workflow
+
+jobs:
+  clone-repository:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the current repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Clone 'website-templates' repository into a folder called 'cloned-templates'
+      - name: Clone 'website-templates' repository
+        run: |
+          git clone https://github.com/learning-zone/website-templates.git cloned-templates
+
+      # Step 3: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'  # Installs the latest Python version
+
+      # Step 4: Install required Python dependencies (requests, pillow)
+      - name: Install Python dependencies
+        run: |
+          pip install requests pillow
+
+      # Step 5: Run the Python script to generate index.html (optional)
+      - name: Generate index.html
+        run: |
+          python3 generate_index.py  # Adjust the script path as needed
+
+      # Step 6: Commit changes (if any) and push to the repository
+      - name: Commit changes and push to repository
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add cloned-templates/ index.html
+          git commit -m "Cloned website-templates and updated index.html"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # This allows the action to push changes to your repository
