@@ -30,7 +30,11 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
+      - name: Initialize and update submodules (if any)
+        run: |
+          git submodule update --init --recursive || echo "No submodules to initialize."
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
