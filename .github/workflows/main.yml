@@ -93,7 +93,7 @@ jobs:
 
       - name: Copy modified templates
         run: |
-          # Copy specific files from the templates folder to the main-repo root
+          # Copy specific files from the templates folder to the main-repo root, creating them if not found
           cp -r templates-folder/index.html main-repo/index.html || touch main-repo/index.html
           cp -r templates-folder/*.md main-repo/ || touch main-repo/README.md
           cp -r templates-folder/.github/workflows main-repo/.github/workflows || mkdir -p main-repo/.github/workflows
@@ -102,6 +102,7 @@ jobs:
         id: git-check
         working-directory: main-repo
         run: |
+          # Check for changes, handling missing files gracefully
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "changes=true" >> $GITHUB_OUTPUT
           else
