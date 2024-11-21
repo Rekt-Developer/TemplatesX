@@ -81,3 +81,14 @@ jobs:
           
           # Insert the popup ad into each HTML file, ideally before the closing </body> tag
           find website-templates/ -name '*.html' -exec sed -i "/<\/body>/i $popup_ad_code" {} \;
+
+      # Step 10: Commit and Push Changes with Custom User Details
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "Rekt-Developer"
+          git config --global user.email "isaac.likhon@yahoo.com"
+          git add -A  # Stage any new changes (after modifying the HTML files)
+          git commit -m "Added ads and Telegram join pop-up" || echo "No changes to commit"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
