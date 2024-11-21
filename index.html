@@ -157,18 +157,8 @@
     </header>
 
     <!-- Template Grid Section -->
-    <div class="repo-container">
-        <!-- Example Template Card -->
-        <div class="repo-card">
-            <img src="https://placehold.it/500x300" alt="Template Screenshot">
-            <div class="repo-info">
-                <h3><a href="https://github.com/Rekt-Developer/TemplatesX" target="_blank">TemplatesX</a></h3>
-                <p>A collection of trending HTML5 templates, UI kits, and themes for developers and designers.</p>
-                <button onclick="window.location.href='https://github.com/Rekt-Developer/TemplatesX/fork'">Fork</button>
-            </div>
-        </div>
-        
-        <!-- More template cards will be added dynamically here -->
+    <div class="repo-container" id="repo-container">
+        <!-- Example Template Card (This will be dynamically loaded) -->
     </div>
 
     <!-- Telegram Popup Button -->
@@ -183,5 +173,36 @@
         <p>Managed by <a href="https://t.me/RektDevelopers" target="_blank">Rekt-Developers</a> | Join us on Telegram!</p>
     </footer>
 
+    <script>
+        // GitHub API call to fetch repository files
+        const repoUrl = 'https://api.github.com/repos/Rekt-Developer/TemplatesX/contents/';
+        const repoContainer = document.getElementById('repo-container');
+
+        fetch(repoUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    data.forEach(file => {
+                        const repoCard = document.createElement('div');
+                        repoCard.classList.add('repo-card');
+                        
+                        let repoContent = `
+                            <img src="https://placehold.it/500x300" alt="Template Screenshot">
+                            <div class="repo-info">
+                                <h3><a href="https://github.com/Rekt-Developer/TemplatesX" target="_blank">${file.name}</a></h3>
+                                <p>${file.type === 'file' ? 'File' : 'Folder'}</p>
+                                <button onclick="window.location.href='https://github.com/Rekt-Developer/TemplatesX/fork'">Fork</button>
+                            </div>
+                        `;
+                        
+                        repoCard.innerHTML = repoContent;
+                        repoContainer.appendChild(repoCard);
+                    });
+                } else {
+                    console.error('Failed to load files from GitHub');
+                }
+            })
+            .catch(err => console.error('Error fetching repository files:', err));
+    </script>
 </body>
 </html>
