@@ -20,7 +20,7 @@ jobs:
       contents: write
     
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with submodules
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -32,11 +32,6 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Initialize and update submodules (if any)
-        run: |
-          git submodule update --init --recursive || echo "No submodules to initialize."
-        continue-on-error: true  # Allow workflow to continue even if submodule update fails
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -47,13 +42,13 @@ jobs:
         run: |
           echo "Starting template modification process..."
           python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
-      
+
       - name: Run tests
         if: inputs.run-tests == true
         run: |
           echo "Running tests..."
           python -m pytest test_clone_and_add_ads.py -v
-      
+
       - name: Configure Git
         run: |
           git config --global user.name "Rekt-Developer"
@@ -85,7 +80,7 @@ jobs:
           echo "Cleaning up temporary files..."
           find . -type d -name "website-templates" -exec rm -rf {} +
           find . -type d -name "__pycache__" -exec rm -rf {} +
-      
+
       - name: Create status report
         if: always()
         run: |
