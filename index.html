@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Discover HTML5 Templates, Themes, and UI Kits</title>
+    <title>Discover HTML5 Templates | TemplatesX</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body {
@@ -19,72 +19,99 @@
         header {
             background-color: #2c3e50;
             color: #fff;
-            padding: 20px;
+            padding: 40px 20px;
             text-align: center;
         }
 
-        h1 {
+        header h1 {
             margin: 0;
-            font-size: 2.5rem;
+            font-size: 3rem;
+        }
+
+        header p {
+            font-size: 1.25rem;
+            margin-top: 10px;
         }
 
         .container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
             padding: 20px;
+            max-width: 1200px;
+            margin: auto;
         }
 
-        .folder-card {
+        .template-card {
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin: 15px;
-            width: 250px;
-            text-align: center;
             overflow: hidden;
             transition: transform 0.3s ease;
         }
 
-        .folder-card:hover {
+        .template-card:hover {
             transform: scale(1.05);
         }
 
-        .folder-card img {
+        .template-card iframe {
             width: 100%;
-            height: auto;
-            object-fit: cover;
+            height: 200px;
+            border: none;
         }
 
-        .folder-card h3 {
+        .template-card h3 {
             font-size: 1.25rem;
-            margin: 10px 0;
+            margin: 15px;
         }
 
-        .folder-card p {
-            font-size: 1rem;
-            color: #777;
-            margin: 0 10px 10px 10px;
-        }
-
-        .folder-card a {
-            display: inline-block;
+        .template-card a {
+            display: block;
+            text-align: center;
+            padding: 10px;
             margin: 10px;
-            padding: 10px 15px;
             background-color: #3498db;
-            color: white;
-            border-radius: 4px;
+            color: #fff;
             text-decoration: none;
+            border-radius: 5px;
             transition: background-color 0.3s;
         }
 
-        .folder-card a:hover {
+        .template-card a:hover {
             background-color: #2980b9;
         }
 
-        .loading {
+        .pagination {
             text-align: center;
-            margin-top: 50px;
+            margin: 20px;
+        }
+
+        .pagination button {
+            margin: 5px;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .pagination button:hover {
+            background-color: #2980b9;
+        }
+
+        footer {
+            background-color: #2c3e50;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        footer a {
+            color: #3498db;
+            text-decoration: none;
         }
     </style>
 </head>
@@ -92,82 +119,100 @@
 <body>
 
     <header>
-        <h1>Discover the Best HTML5 Templates, Themes, and UI Kits</h1>
-        <p>Browse and Preview Various HTML5 Templates and Fork Your Favorite Ones</p>
+        <h1>Discover HTML5 Templates</h1>
+        <p>Explore over 500+ HTML5 templates, themes, and UI kits.</p>
     </header>
 
-    <div class="loading">
-        <p>Loading templates...</p>
+    <div class="container" id="templates-container">
+        <!-- Templates will be dynamically loaded here -->
     </div>
 
-    <div class="container" id="templates-container">
-        <!-- Template Cards Will Be Dynamically Added Here -->
+    <div class="pagination" id="pagination-controls">
+        <!-- Pagination buttons will be dynamically added here -->
     </div>
+
+    <footer>
+        <p>&copy; 2024 TemplatesX by <a href="https://github.com/Rekt-Developer" target="_blank">Rekt-Developer</a>. Powered by GitHub API.</p>
+    </footer>
 
     <script>
         const repoOwner = 'Rekt-Developer';
         const repoName = 'TemplatesX';
         const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents`;
+        const templatesPerPage = 20;
+        let currentPage = 1;
+        let allTemplates = [];
 
-        // Function to fetch and display folders and HTML files
+        // Function to fetch templates
         async function fetchTemplates() {
             try {
                 const response = await fetch(apiUrl);
                 const data = await response.json();
-                const container = document.getElementById('templates-container');
-                const loadingMessage = document.querySelector('.loading');
 
-                // Hide loading message
-                loadingMessage.style.display = 'none';
-
-                data.forEach(item => {
-                    if (item.type === 'dir') {
-                        // For each folder (dir), create a card
-                        const folderCard = document.createElement('div');
-                        folderCard.classList.add('folder-card');
-                        folderCard.innerHTML = `
-                            <h3>${item.name}</h3>
-                            <p>Discover various templates inside the folder.</p>
-                            <a href="https://github.com/${repoOwner}/${repoName}/tree/main/${item.path}" target="_blank">View on GitHub</a>
-                            <a href="https://rekt-developer.github.io/${repoName}/${item.path}/index.html" target="_blank">Preview</a>
-                        `;
-                        container.appendChild(folderCard);
-
-                        // Fetch HTML files inside each folder
-                        fetchFolderContents(item.path);
-                    }
-                });
+                // Filter only directories (folders)
+                allTemplates = data.filter(item => item.type === 'dir');
+                renderTemplates();
+                renderPagination();
             } catch (error) {
                 console.error('Error fetching templates:', error);
             }
         }
 
-        // Fetch folder contents (HTML files inside each folder)
-        async function fetchFolderContents(path) {
-            try {
-                const folderUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${path}`;
-                const response = await fetch(folderUrl);
-                const files = await response.json();
+        // Render templates for the current page
+        function renderTemplates() {
+            const container = document.getElementById('templates-container');
+            container.innerHTML = ''; // Clear previous templates
 
-                // Find the folder card corresponding to the current folder path
-                const folderCard = document.querySelector(`.folder-card a[href*="${path}"]`).parentElement;
+            // Calculate start and end indices
+            const startIndex = (currentPage - 1) * templatesPerPage;
+            const endIndex = Math.min(startIndex + templatesPerPage, allTemplates.length);
 
-                // Look for HTML files and add them to the folder card
-                files.forEach(file => {
-                    if (file.name.endsWith('.html')) {
-                        const previewLink = document.createElement('a');
-                        previewLink.href = file.download_url;
-                        previewLink.textContent = `View ${file.name}`;
-                        previewLink.target = '_blank';
-                        folderCard.appendChild(previewLink);
-                    }
-                });
-            } catch (error) {
-                console.error('Error fetching folder contents:', error);
+            // Display templates for the current page
+            for (let i = startIndex; i < endIndex; i++) {
+                const template = allTemplates[i];
+                const card = document.createElement('div');
+                card.classList.add('template-card');
+                card.innerHTML = `
+                    <iframe src="https://rekt-developer.github.io/${repoName}/${template.name}/index.html" title="${template.name} Preview"></iframe>
+                    <h3>${template.name}</h3>
+                    <a href="https://github.com/${repoOwner}/${repoName}/tree/main/${template.path}" target="_blank">View on GitHub</a>
+                    <a href="https://rekt-developer.github.io/${repoName}/${template.name}/index.html" target="_blank">Preview</a>
+                `;
+                container.appendChild(card);
             }
         }
 
-        // Call the fetchTemplates function to load the templates
+        // Render pagination controls
+        function renderPagination() {
+            const pagination = document.getElementById('pagination-controls');
+            pagination.innerHTML = ''; // Clear previous buttons
+
+            const totalPages = Math.ceil(allTemplates.length / templatesPerPage);
+
+            if (currentPage > 1) {
+                const prevButton = document.createElement('button');
+                prevButton.textContent = 'Previous';
+                prevButton.onclick = () => {
+                    currentPage--;
+                    renderTemplates();
+                    renderPagination();
+                };
+                pagination.appendChild(prevButton);
+            }
+
+            if (currentPage < totalPages) {
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Next';
+                nextButton.onclick = () => {
+                    currentPage++;
+                    renderTemplates();
+                    renderPagination();
+                };
+                pagination.appendChild(nextButton);
+            }
+        }
+
+        // Fetch and display templates on page load
         fetchTemplates();
     </script>
 
