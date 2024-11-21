@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import os
 import sys
-import git
-from bs4 import BeautifulSoup
-import glob
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, List, Tuple
+import shutil
+from pathlib import Path
+from bs4 import BeautifulSoup
+from typing import List, Set
 
 # Configure logging
 logging.basicConfig(
@@ -15,150 +14,121 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class WebsiteTemplateModifier:
-    def __init__(self, git_url: Optional[str] = None):
-        self.git_url = git_url or "https://github.com/learning-zone/website-templates.git"
-        self.repo_path = None
-        
-        # Advertisement HTML template with responsive design
-        self.ad_template = """
-        <!-- Responsive Advertisement Section -->
-        <div class="ad-container" style="
-            text-align: center;
-            margin: 20px auto;
-            padding: 15px;
-            background: #f8f9fa;
-            max-width: 100%;
-            box-sizing: border-box;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div class="ad-placeholder" style="
-                min-height: 250px;
-                background: linear-gradient(45deg, #e9ecef, #dee2e6);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 4px;
-                margin: 0 auto;
-                max-width: 728px;">
-                <p style="color: #6c757d; font-family: Arial, sans-serif;">Advertisement Space</p>
-            </div>
-        </div>
-        """
-    
-    def clone_repository(self) -> str:
-        """Clone the repository to a local directory."""
-        try:
-            repo_name = self.git_url.split('/')[-1].replace('.git', '')
-            self.repo_path = os.path.join(os.getcwd(), repo_name)
-            
-            if os.path.exists(self.repo_path):
-                logger.info(f"Removing existing directory: {self.repo_path}")
-                import shutil
-                shutil.rmtree(self.repo_path)
-            
-            logger.info(f"Cloning repository from {self.git_url}")
-            git.Repo.clone_from(self.git_url, self.repo_path)
-            self.update_submodules()  # Ensure submodules are updated after cloning
-            return self.repo_path
-            
-        except Exception as e:
-            logger.error(f"Failed to clone repository: {str(e)}")
-            raise
-            
-    def update_submodules(self):
-        """Update submodules if any."""
-        try:
-            repo = git.Repo(self.repo_path)  # Current repository
-            logger.info("Updating submodules...")
-            repo.submodule_update(init=True, recursive=True)
-            logger.info("Submodules updated successfully.")
-        except git.exc.GitCommandError as e:
-            logger.error(f"Error updating submodules: {e}")
-            raise
+def setup_ad_container() -> str:
+    """Returns the HTML for a responsive advertisement container."""
+    return """
+    <!-- Advertisement Container -->
+    <div class="ad-container" style="
+        width: 100%;
+        max-width: 728px;
+        margin: 20px auto;
+        min-height: 90px;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 10px;
+        box-sizing: border-box;
+        text-align: center;
+    ">
+        <p style="color: #6c757d; margin: 0;">Advertisement Space</p>
+    </div>
+    """
 
-    def process_html_file(self, html_file: str) -> Tuple[bool, str]:
-        """Process a single HTML file to add advertisements."""
-        try:
-            with open(html_file, 'r', encoding='utf-8') as f:
-                soup = BeautifulSoup(f.read(), 'html.parser')
-            
-            body = soup.find('body')
-            if not body:
-                return False, f"No body tag found in {html_file}"
-            
-            # Add ads at the top and bottom of body
-            top_ad = BeautifulSoup(self.ad_template, 'html.parser')
-            bottom_ad = BeautifulSoup(self.ad_template, 'html.parser')
-            
-            body.insert(0, top_ad)
-            body.append(bottom_ad)
-            
-            with open(html_file, 'w', encoding='utf-8') as f:
-                f.write(str(soup))
-            
-            return True, html_file
-            
-        except Exception as e:
-            return False, f"Error processing {html_file}: {str(e)}"
+def modify_html_file(file_path: Path) -> bool:
+    """
+    Modifies a single HTML file to add advertisement containers.
     
-    def add_ads_to_html_files(self) -> List[str]:
-        """Add advertisement placeholders to all HTML files in parallel."""
-        if not self.repo_path:
-            raise ValueError("Repository path not set. Run clone_repository() first.")
+    Args:
+        file_path: Path to the HTML file
         
-        html_files = glob.glob(f"{self.repo_path}/**/*.html", recursive=True)
-        modified_files = []
-        
-        if not html_files:
-            logger.warning("No HTML files found in repository")
-            return modified_files
-        
-        logger.info(f"Found {len(html_files)} HTML files to process")
-        
-        # Process files in parallel using ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            results = list(executor.map(self.process_html_file, html_files))
-        
-        # Process results
-        for success, result in results:
-            if success:
-                modified_files.append(result)
-                logger.info(f"Successfully modified: {result}")
-            else:
-                logger.error(result)
-        
-        logger.info(f"Modified {len(modified_files)} out of {len(html_files)} files")
-        return modified_files
-
-def main():
-    """Main execution function."""
+    Returns:
+        bool: True if file was modified, False otherwise
+    """
     try:
-        # Get repository URL from command line argument
-        git_url = sys.argv[1] if len(sys.argv) > 1 else None
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        soup = BeautifulSoup(content, 'html.parser')
+        body = soup.find('body')
         
-        # Initialize and run the modifier
-        modifier = WebsiteTemplateModifier(git_url)
+        if not body:
+            logger.warning(f"No body tag found in {file_path}")
+            return False
+            
+        # Create the ad container element
+        ad_container = BeautifulSoup(setup_ad_container(), 'html.parser')
         
-        logger.info("Starting website template modification process")
+        # Add ad container after opening body tag
+        body.insert(0, ad_container)
         
-        # Clone repository
-        repo_path = modifier.clone_repository()
-        logger.info(f"Repository cloned to: {repo_path}")
+        # Add another ad container before closing body tag
+        body.append(BeautifulSoup(setup_ad_container(), 'html.parser'))
         
-        # Add ads to HTML files
-        modified_files = modifier.add_ads_to_html_files()
-        
-        if not modified_files:
-            logger.error("No files were modified")
-            sys.exit(1)  # Exit with error code 1 if no files were modified
-        
-        logger.info("Process completed successfully!")
-        sys.exit(0)  # Exit with success code 0
+        # Write the modified content back to the file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(str(soup))
+            
+        logger.info(f"Successfully modified {file_path}")
+        return True
         
     except Exception as e:
-        logger.error(f"Process failed: {str(e)}")
-        sys.exit(1)  # Exit with error code 1 in case of failure
+        logger.error(f"Error modifying {file_path}: {str(e)}")
+        return False
+
+def process_directory(directory_path: Path) -> tuple[int, int]:
+    """
+    Recursively processes all HTML files in the given directory.
+    
+    Args:
+        directory_path: Path to the directory to process
+        
+    Returns:
+        tuple[int, int]: (number of files processed, number of files modified)
+    """
+    processed = 0
+    modified = 0
+    
+    try:
+        for file_path in directory_path.rglob('*.html'):
+            processed += 1
+            if modify_html_file(file_path):
+                modified += 1
+                
+    except Exception as e:
+        logger.error(f"Error processing directory {directory_path}: {str(e)}")
+        
+    return processed, modified
+
+def main():
+    """Main function to process website templates."""
+    if len(sys.argv) != 2:
+        logger.error("Usage: python clone_and_add_ads.py <templates_directory>")
+        sys.exit(1)
+        
+    templates_dir = Path(sys.argv[1])
+    
+    if not templates_dir.exists():
+        logger.error(f"Directory does not exist: {templates_dir}")
+        sys.exit(1)
+        
+    logger.info("Starting template modification process...")
+    
+    processed, modified = process_directory(templates_dir)
+    
+    logger.info(f"Process completed. Processed {processed} files, modified {modified} files.")
+    
+    if processed == 0:
+        logger.warning("No HTML files were found to process")
+        sys.exit(1)
+    
+    if modified == 0:
+        logger.warning("No files were modified")
+        sys.exit(1)
+        
+    logger.info("Template modification completed successfully")
 
 if __name__ == "__main__":
     main()
