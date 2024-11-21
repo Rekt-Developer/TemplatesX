@@ -1,0 +1,45 @@
+name: Clone Templates and Generate Index
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:
+
+jobs:
+  generate-templates:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Clone the target repository with the HTML5 templates
+      - name: Clone website-templates repository
+        run: |
+          git clone https://github.com/learning-zone/website-templates.git website-templates
+
+      # Step 3: Install dependencies (e.g., Python)
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+
+      # Step 4: Install required Python libraries
+      - name: Install Python Dependencies
+        run: |
+          pip3 install pillow requests
+
+      # Step 5: Run the Python script to generate the index.html
+      - name: Generate Index HTML
+        run: |
+          python3 generate_index.py
+
+      # Step 6: Commit and push changes
+      - name: Commit and Push Changes
+        run: |
+          git add index.html
+          git commit -m "Update index.html with new templates"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
