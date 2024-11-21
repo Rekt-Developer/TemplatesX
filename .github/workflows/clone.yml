@@ -24,8 +24,13 @@ jobs:
           python-version: '3.x'
 
       # Step 3: Install dependencies and run the clone_and_add_ads.py script
-      - name: Clone Repository and Add Ads
+      - name: Install dependencies and run the script
         run: |
+          # Install the required Python modules
+          python -m pip install --upgrade pip
+          pip install gitpython
+          
+          # Run the Python script to clone and add ads
           python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
 
       # Step 4: Commit and push changes to repository
@@ -33,9 +38,10 @@ jobs:
         run: |
           git config --global user.name "Rekt-Developer"
           git config --global user.email "isaac.likhon@yahoo.com"
+          
+          # Add all changes to git, commit, and push
           git add .
           git commit -m "Cloned and added ads to website-templates"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
