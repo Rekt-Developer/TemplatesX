@@ -1,9 +1,12 @@
 name: Clone Website Templates and Add Ads
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight
-  workflow_dispatch:  # Allows manual triggering of the workflow
+  workflow_dispatch:  # Allows manual triggering of the workflow with inputs
+    inputs:
+      git-url:
+        description: 'GitHub Repository URL to clone (Leave empty for default)'
+        required: false  # This is optional, and if left empty, the default URL will be used
+        default: 'https://github.com/learning-zone/website-templates.git'  # Default URL
 
 jobs:
   clone-repository:
@@ -14,12 +17,21 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Clone the 'website-templates' repository into the 'website-templates' folder
-      - name: Clone 'website-templates' repository into 'website-templates' folder
+      # Step 2: Clone the specified GitHub repository into the 'website-templates' folder
+      - name: Clone GitHub repository into 'website-templates' folder
         run: |
-          git clone https://github.com/learning-zone/website-templates.git website-templates
+          # Get the Git URL from the input (or default to the predefined URL)
+          GIT_URL="${{ github.event.inputs.git-url }}"
+          
+          # If the URL is empty, use the default URL
+          if [ -z "$GIT_URL" ]; then
+            GIT_URL="https://github.com/learning-zone/website-templates.git"
+          fi
 
-      # Step 3: Add all files from the cloned repository
+          echo "Cloning repository from: $GIT_URL"
+          git clone $GIT_URL website-templates
+          
+      # Step 3: Stage all files from the cloned repository
       - name: Stage files
         run: |
           git add -A  # Stage all files from the cloned repository
