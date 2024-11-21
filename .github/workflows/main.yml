@@ -1,5 +1,3 @@
-name: Website Template Automation
-
 on:
   workflow_dispatch:
     inputs:
@@ -56,10 +54,10 @@ jobs:
           fi
           
           echo "Default branch is: $DEFAULT_BRANCH"
-          echo "default_branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+          echo "default_branch=$DEFAULT_branch" >> $GITHUB_OUTPUT
           
-          # Clone the templates repository
-          git clone --depth 1 --branch "$DEFAULT_BRANCH" "$REPO_URL" templates-repo
+          # Clone the templates repository into a specific folder
+          git clone --depth 1 --branch "$DEFAULT_BRANCH" "$REPO_URL" "templates-folder"
           
           if [ $? -ne 0 ]; then
             echo "::error::Failed to clone repository: $REPO_URL"
@@ -75,7 +73,7 @@ jobs:
         id: modify
         run: |
           echo "Starting template modification process..."
-          python clone_and_add_ads.py "templates-repo"
+          python clone_and_add_ads.py "templates-folder"
         env:
           PYTHONUNBUFFERED: 1
 
@@ -95,7 +93,10 @@ jobs:
 
       - name: Copy modified templates
         run: |
-          cp -r templates-repo/* main-repo/
+          # Copy specific files from the templates folder to the main-repo root
+          cp -r templates-folder/index.html main-repo/index.html || touch main-repo/index.html
+          cp -r templates-folder/*.md main-repo/ || touch main-repo/README.md
+          cp -r templates-folder/.github/workflows main-repo/.github/workflows || mkdir -p main-repo/.github/workflows
 
       - name: Check for changes
         id: git-check
@@ -137,7 +138,7 @@ jobs:
         if: always()
         run: |
           echo "Cleaning up temporary files..."
-          rm -rf templates-repo
+          rm -rf templates-folder
           rm -rf clone_and_add_ads.py
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
