@@ -1,47 +1,164 @@
-name: Clone Templates and Generate Index
+name: Website Template Automation
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight
   workflow_dispatch:
+    inputs:
+      git-url:
+        description: 'GitHub Repository URL to clone'
+        required: true
+        type: string
+        default: 'https://github.com/learning-zone/website-templates.git'
+      run-tests:
+        description: 'Run tests after modification'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
-  generate-templates:
+  modify-templates:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+    
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: main-repo
 
-      # Step 2: Clone the target repository with HTML5 templates
-      - name: Clone website-templates repository
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: main-repo
         run: |
-          git clone https://github.com/learning-zone/website-templates.git website-templates
+          python -m pip install --upgrade pip
+          pip install gitpython beautifulsoup4 pytest requests
 
-      # Step 3: Install dependencies (e.g., Python)
-      - name: Install Dependencies
+      - name: Detect default branch and clone templates
+        id: clone-repo
         run: |
-          sudo apt-get update
-          sudo apt-get install -y python3 python3-pip
+          # Extract owner and repo name from URL
+          REPO_URL="${{ inputs.git-url }}"
+          REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\1/')
+          REPO_NAME=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\2/' | sed 's/.git$//')
+          
+          # Use GitHub API to get default branch
+          DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME" | grep -o '"default_branch": "[^"]*' | cut -d'"' -f4)
+          
+          if [ -z "$DEFAULT_BRANCH" ]; then
+            echo "::error::Failed to detect default branch for repository: $REPO_URL"
+            exit 1
+          fi
+          
+          echo "Default branch is: $DEFAULT_BRANCH"
+          echo "default_branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+          
+          # Clone the templates repository
+          git clone --depth 1 --branch "$DEFAULT_BRANCH" "$REPO_URL" templates-repo
+          
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to clone repository: $REPO_URL"
+            exit 1
+          fi
 
-      # Step 4: Install required Python libraries
-      - name: Install Python Dependencies
+      - name: Copy Python script
         run: |
-          pip3 install pillow requests
+          cp main-repo/clone_and_add_ads.py ./clone_and_add_ads.py
+          chmod +x clone_and_add_ads.py
 
-      # Step 5: Run the Python script to generate the index.html
-      - name: Generate Index HTML
+      - name: Run template modification
+        id: modify
         run: |
-          python3 generate_index.py
+          echo "Starting template modification process..."
+          python clone_and_add_ads.py "templates-repo"
+        env:
+          PYTHONUNBUFFERED: 1
 
-      # Step 6: Commit and push changes
-      - name: Commit and Push Changes
+      - name: Run tests
+        if: inputs.run-tests == true
+        working-directory: main-repo
+        run: |
+          echo "Running tests..."
+          python -m pytest test_clone_and_add_ads.py -v
+        continue-on-error: true
+
+      - name: Configure Git
+        working-directory: main-repo
         run: |
           git config --global user.name "Rekt-Developer"
           git config --global user.email "isaac.likhon@yahoo.com"
-          git add index.html
-          git commit -m "Update index.html with new templates"
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy modified templates
+        run: |
+          cp -r templates-repo/* main-repo/
+
+      - name: Check for changes
+        id: git-check
+        working-directory: main-repo
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stage changes
+        if: steps.git-check.outputs.changes == 'true'
+        working-directory: main-repo
+        run: |
+          git add -A
+          git status
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        working-directory: main-repo
+        run: |
+          git commit -m "feat: Add advertisement placeholders to templates
+
+          - Added responsive ad containers
+          - Automated via GitHub Actions
+          - Repository: ${{ inputs.git-url }}
+          - Branch: ${{ steps.clone-repo.outputs.default_branch }}
+          - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          
+          git push origin ${{ github.ref_name }}
+          
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to push changes to repository"
+            exit 1
+          fi
+
+      - name: Clean up
+        if: always()
+        run: |
+          echo "Cleaning up temporary files..."
+          rm -rf templates-repo
+          rm -rf clone_and_add_ads.py
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+
+      - name: Create status report
+        if: always()
+        run: |
+          {
+            echo "### Template Modification Report"
+            echo "- Repository: ${{ inputs.git-url }}"
+            echo "- Default Branch: ${{ steps.clone-repo.outputs.default_branch }}"
+            echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}"
+            
+            if [[ "${{ steps.git-check.outputs.changes }}" == "true" ]]; then
+              echo "- Modified Files:"
+              git diff --name-only HEAD~1 HEAD | sed 's/^/  - /'
+            fi
+            
+            if [[ "${{ inputs.run-tests }}" == "true" ]]; then
+              echo "- Tests Executed: Yes"
+            else
+              echo "- Tests Executed: No"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
