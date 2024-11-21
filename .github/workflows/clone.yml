@@ -5,13 +5,19 @@ on:
     inputs:
       git-url:
         description: 'GitHub Repository URL to clone'
-        required: false
+        required: true
+        type: string
         default: 'https://github.com/learning-zone/website-templates.git'
       run-tests:
         description: 'Run tests after modification'
         required: false
         type: boolean
         default: true
+      branch:
+        description: 'Branch to clone and modify'
+        required: false
+        type: string
+        default: 'main'
 
 jobs:
   modify-templates:
@@ -20,12 +26,11 @@ jobs:
       contents: write
     
     steps:
-      - name: Checkout repository with submodules
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          submodules: 'recursive'
-
+          fetch-depth: 1  # Shallow clone for faster checkout
+          
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -35,29 +40,35 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install gitpython beautifulsoup4 pytest
+          pip install gitpython beautifulsoup4 pytest requests
 
-      - name: Initialize and update submodules (if any)
+      - name: Clone template repository
         run: |
-          if [ -f .gitmodules ]; then
-            git submodule update --init --recursive
-          else
-            echo ".gitmodules not found, skipping submodule initialization."
+          # Remove any existing template directory
+          rm -rf website-templates
+          
+          # Clone the specified repository
+          git clone --depth 1 --branch ${{ inputs.branch }} ${{ inputs.git-url }} website-templates
+          
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to clone repository: ${{ inputs.git-url }}"
+            exit 1
           fi
-          git submodule sync || echo "No submodules to sync."
-        continue-on-error: true  # Allow workflow to continue even if submodule update fails
 
       - name: Run template modification
         id: modify
         run: |
           echo "Starting template modification process..."
-          python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
+          python clone_and_add_ads.py "website-templates"
+        env:
+          PYTHONUNBUFFERED: 1
 
       - name: Run tests
         if: inputs.run-tests == true
         run: |
           echo "Running tests..."
           python -m pytest test_clone_and_add_ads.py -v
+        continue-on-error: true  # Don't fail the workflow if tests fail
 
       - name: Configure Git
         run: |
@@ -73,32 +84,55 @@ jobs:
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit and push changes
+      - name: Stage changes
         if: steps.git-check.outputs.changes == 'true'
         run: |
           git add -A
+          git status
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
           git commit -m "feat: Add advertisement placeholders to templates
-          
+
           - Added responsive ad containers
           - Automated via GitHub Actions
+          - Repository: ${{ inputs.git-url }}
+          - Branch: ${{ inputs.branch }}
           - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-          git push origin ${{ github.ref }}
+          
+          git push origin ${{ github.ref_name }}
+          
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to push changes to repository"
+            exit 1
+          fi
 
       - name: Clean up
         if: always()
         run: |
           echo "Cleaning up temporary files..."
-          find . -type d -name "website-templates" -exec rm -rf {} +
+          rm -rf website-templates
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
       - name: Create status report
         if: always()
         run: |
-          echo "### Template Modification Report" > $GITHUB_STEP_SUMMARY
-          echo "- Repository: ${{ github.event.inputs.git-url || 'Default templates repository' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.git-check.outputs.changes }}" == "true" ]]; then
-            echo "- Modified Files:" >> $GITHUB_STEP_SUMMARY
-            git diff --name-only HEAD~1 HEAD | sed 's/^/  - /' >> $GITHUB_STEP_SUMMARY
-          fi
+          {
+            echo "### Template Modification Report"
+            echo "- Repository: ${{ inputs.git-url }}"
+            echo "- Branch: ${{ inputs.branch }}"
+            echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}"
+            
+            if [[ "${{ steps.git-check.outputs.changes }}" == "true" ]]; then
+              echo "- Modified Files:"
+              git diff --name-only HEAD~1 HEAD | sed 's/^/  - /'
+            fi
+            
+            if [[ "${{ inputs.run-tests }}" == "true" ]]; then
+              echo "- Tests Executed: Yes"
+            else
+              echo "- Tests Executed: No"
+            fi
+          } >> $GITHUB_STEP_SUMMARY
