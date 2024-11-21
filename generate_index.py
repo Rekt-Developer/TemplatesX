@@ -1,16 +1,13 @@
 import os
 import requests
-from PIL import Image
-from io import BytesIO
 
 # GitHub repository URL
-REPO_URL = 'https://api.github.com/repos/Rekt-Developer/TemplatesX/contents'
-TEMPLATES_DIR = 'website-templates'
+REPO_URL = 'https://api.github.com/repos/Rekt-Developer/TemplatesX/contents/website-templates'
 INDEX_FILE = 'index.html'
 
 # Function to generate the HTML index file
 def generate_index():
-    # Fetch data from GitHub repository (list of files)
+    # Fetch data from GitHub repository (list of subfolders in website-templates)
     response = requests.get(REPO_URL)
     templates = response.json()
 
@@ -50,9 +47,6 @@ def generate_index():
             /* Floating Telegram Popup */
             #telegram-popup { position: fixed; bottom: 10px; right: 10px; background-color: #25d366; border-radius: 50%; padding: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); cursor: pointer; z-index: 10000; }
             #telegram-popup a { color: white; font-size: 30px; text-decoration: none; }
-            /* Responsive Styling */
-            @media screen and (max-width: 768px) { .repo-container { grid-template-columns: 1fr 1fr; } }
-            @media screen and (max-width: 480px) { .repo-container { grid-template-columns: 1fr; } }
         </style>
     </head>
     <body>
@@ -62,21 +56,22 @@ def generate_index():
         </header>
         <div class="repo-container">
     '''
-    
-    # Loop through all templates and create cards
+
+    # Loop through all subfolders (templates) and create cards for each one
     for template in templates:
-        if 'html' in template['name']:  # Filter only HTML files
-            template_name = template['name']
-            template_url = f"https://github.com/Rekt-Developer/TemplatesX/tree/main/{template_name}"
-            template_preview = template_url + "/screenshot.jpg"  # Example screenshot URL
+        if template['type'] == 'dir':  # Filter only folders (not files)
+            folder_name = template['name']
+            folder_url = f"https://rekt-developer.github.io/TemplatesX/{folder_name}"
+            # Placeholder for screenshot (you can add logic to fetch the screenshot if available)
+            template_preview = f"https://rekt-developer.github.io/TemplatesX/{folder_name}/screenshot.jpg"
             
             html_content += f'''
             <div class="repo-card">
-                <img src="{template_preview}" alt="{template_name} Screenshot">
+                <img src="{template_preview}" alt="{folder_name} Screenshot">
                 <div class="repo-info">
-                    <h3><a href="{template_url}" target="_blank">{template_name}</a></h3>
-                    <p>A cool HTML template.</p>
-                    <button onclick="window.location.href='{template_url}/fork'">Fork</button>
+                    <h3><a href="{folder_url}" target="_blank">{folder_name}</a></h3>
+                    <p>Explore the HTML5 template {folder_name} for your next project!</p>
+                    <button onclick="window.location.href='{folder_url}/fork'">Fork</button>
                 </div>
             </div>
             '''
