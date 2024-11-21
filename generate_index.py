@@ -9,8 +9,16 @@ INDEX_FILE = 'index.html'
 def generate_index():
     # Fetch data from GitHub repository (list of subfolders in website-templates)
     response = requests.get(REPO_URL)
+    
+    if response.status_code != 200:
+        print(f"Error fetching data: {response.status_code}")
+        return
+    
     templates = response.json()
 
+    # Debugging: Print the fetched templates to understand the structure
+    print(f"Fetched templates: {templates}")
+    
     # HTML structure for the header
     html_content = '''
     <!DOCTYPE html>
@@ -59,7 +67,7 @@ def generate_index():
 
     # Loop through all subfolders (templates) and create cards for each one
     for template in templates:
-        if template['type'] == 'dir':  # Filter only folders (not files)
+        if isinstance(template, dict) and template.get('type') == 'dir':  # Filter only folders (not files)
             folder_name = template['name']
             folder_url = f"https://rekt-developer.github.io/TemplatesX/{folder_name}"
             # Placeholder for screenshot (you can add logic to fetch the screenshot if available)
