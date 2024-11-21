@@ -18,7 +18,13 @@ def remove_and_create_folder(clone_dir='website-templates'):
     if os.path.exists(clone_dir):
         try:
             print(f"Removing old folder '{clone_dir}'...")
-            os.rmdir(clone_dir)  # Remove the folder
+            # Remove the folder if it exists
+            for root, dirs, files in os.walk(clone_dir, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            os.rmdir(clone_dir)  # Finally, remove the main directory
             print(f"Folder '{clone_dir}' removed successfully.")
         except OSError as e:
             print(f"Error removing folder: {e}")
@@ -62,17 +68,22 @@ def add_ads_to_html(clone_dir='website-templates'):
         for file in files:
             if file.endswith('.html'):
                 file_path = os.path.join(root, file)
-                with open(file_path, 'r') as f:
-                    content = f.read()
+                try:
+                    # Attempt to read the file with different encodings if necessary
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
 
-                # Insert the ad code before the closing </body> tag
-                if '</body>' in content:
-                    content = content.replace('</body>', f'<!-- Ads Section -->\n{ad_code}\n{ad_code_2}\n{ad_code_3}\n{popup_ad_code}\n</body>')
+                    # Insert the ad code before the closing </body> tag
+                    if '</body>' in content:
+                        content = content.replace('</body>', f'<!-- Ads Section -->\n{ad_code}\n{ad_code_2}\n{ad_code_3}\n{popup_ad_code}\n</body>')
 
-                # Write the modified content back to the file
-                with open(file_path, 'w') as f:
-                    f.write(content)
-                print(f"Ads added to {file_path}")
+                    # Write the modified content back to the file
+                    with open(file_path, 'w', encoding='utf-8', errors='ignore') as f:
+                        f.write(content)
+                    print(f"Ads added to {file_path}")
+
+                except Exception as e:
+                    print(f"Error processing {file_path}: {e}")
 
 # Main function to handle the full process
 def main():
