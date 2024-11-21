@@ -1,106 +1,152 @@
-import sys
+#!/usr/bin/env python3
 import os
+import sys
 import git
-from git.exc import GitCommandError
-import subprocess
+from bs4 import BeautifulSoup
+import glob
+import logging
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional, List, Tuple
 
-# Function to install required Python modules
-def install_modules():
-    try:
-        print("Installing required Python modules...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "gitpython"])
-    except subprocess.CalledProcessError as e:
-        print(f"Error installing required modules: {e}")
-        sys.exit(1)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Function to remove old 'website-templates' folder and create a new one
-def remove_and_create_folder(clone_dir='website-templates'):
-    if os.path.exists(clone_dir):
+class WebsiteTemplateModifier:
+    def __init__(self, git_url: Optional[str] = None):
+        self.git_url = git_url or "https://github.com/learning-zone/website-templates.git"
+        self.repo_path = None
+        
+        # Advertisement HTML template with responsive design
+        self.ad_template = """
+        <!-- Responsive Advertisement Section -->
+        <div class="ad-container" style="
+            text-align: center;
+            margin: 20px auto;
+            padding: 15px;
+            background: #f8f9fa;
+            max-width: 100%;
+            box-sizing: border-box;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div class="ad-placeholder" style="
+                min-height: 250px;
+                background: linear-gradient(45deg, #e9ecef, #dee2e6);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 4px;
+                margin: 0 auto;
+                max-width: 728px;">
+                <p style="color: #6c757d; font-family: Arial, sans-serif;">Advertisement Space</p>
+            </div>
+        </div>
+        """
+    
+    def clone_repository(self) -> str:
+        """Clone the repository to a local directory."""
         try:
-            print(f"Removing old folder '{clone_dir}'...")
-            # Remove the folder if it exists
-            for root, dirs, files in os.walk(clone_dir, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root, name))
-            os.rmdir(clone_dir)  # Finally, remove the main directory
-            print(f"Folder '{clone_dir}' removed successfully.")
-        except OSError as e:
-            print(f"Error removing folder: {e}")
-            sys.exit(1)
+            repo_name = self.git_url.split('/')[-1].replace('.git', '')
+            self.repo_path = os.path.join(os.getcwd(), repo_name)
+            
+            if os.path.exists(self.repo_path):
+                logger.info(f"Removing existing directory: {self.repo_path}")
+                import shutil
+                shutil.rmtree(self.repo_path)
+            
+            logger.info(f"Cloning repository from {self.git_url}")
+            git.Repo.clone_from(self.git_url, self.repo_path)
+            return self.repo_path
+            
+        except Exception as e:
+            logger.error(f"Failed to clone repository: {str(e)}")
+            raise
     
-    # Create the new folder
-    try:
-        print(f"Creating new folder '{clone_dir}'...")
-        os.makedirs(clone_dir)  # Create the folder
-        print(f"Folder '{clone_dir}' created successfully.")
-    except OSError as e:
-        print(f"Error creating folder: {e}")
-        sys.exit(1)
+    def process_html_file(self, html_file: str) -> Tuple[bool, str]:
+        """Process a single HTML file to add advertisements."""
+        try:
+            with open(html_file, 'r', encoding='utf-8') as f:
+                soup = BeautifulSoup(f.read(), 'html.parser')
+            
+            body = soup.find('body')
+            if not body:
+                return False, f"No body tag found in {html_file}"
+            
+            # Add ads at the top and bottom of body
+            top_ad = BeautifulSoup(self.ad_template, 'html.parser')
+            bottom_ad = BeautifulSoup(self.ad_template, 'html.parser')
+            
+            body.insert(0, top_ad)
+            body.append(bottom_ad)
+            
+            with open(html_file, 'w', encoding='utf-8') as f:
+                f.write(str(soup))
+            
+            return True, html_file
+            
+        except Exception as e:
+            return False, f"Error processing {html_file}: {str(e)}"
+    
+    def add_ads_to_html_files(self) -> List[str]:
+        """Add advertisement placeholders to all HTML files in parallel."""
+        if not self.repo_path:
+            raise ValueError("Repository path not set. Run clone_repository() first.")
+        
+        html_files = glob.glob(f"{self.repo_path}/**/*.html", recursive=True)
+        modified_files = []
+        
+        if not html_files:
+            logger.warning("No HTML files found in repository")
+            return modified_files
+        
+        logger.info(f"Found {len(html_files)} HTML files to process")
+        
+        # Process files in parallel using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            results = list(executor.map(self.process_html_file, html_files))
+        
+        # Process results
+        for success, result in results:
+            if success:
+                modified_files.append(result)
+                logger.info(f"Successfully modified: {result}")
+            else:
+                logger.error(result)
+        
+        logger.info(f"Modified {len(modified_files)} out of {len(html_files)} files")
+        return modified_files
 
-# Function to clone the repository
-def clone_repo(git_url, clone_dir='website-templates'):
-    try:
-        print(f"Cloning repository from {git_url} into '{clone_dir}'...")
-        git.Repo.clone_from(git_url, clone_dir)
-        print(f"Repository successfully cloned into '{clone_dir}'")
-    except GitCommandError as e:
-        print(f"Failed to clone repository: {e}")
-        sys.exit(1)
-
-# Function to add ads in all HTML files
-def add_ads_to_html(clone_dir='website-templates'):
-    ad_code = '''<script type="text/javascript" src="//pl25013478.profitablecpmrate.com/66/17/d7/6617d7163a895c776c2db7800c9d3306.js"></script>'''
-    ad_code_2 = '''<a href="https://www.profitablecpmrate.com/tgzx4x7534?key=6ef5bb925723a00f5a280cee80cfc569" target="_blank">Direct Ad Link</a>'''
-    ad_code_3 = '''<script type="text/javascript" src="//pl25032294.profitablecpmrate.com/0f/9f/9c/0f9f9c5c85bb14b4da3ce62b002175ec.js"></script>'''
-
-    popup_ad_code = '''<script type="text/javascript">
-        window.onload = function() {
-            setTimeout(function() {
-                var popup = window.open("https://t.me/RektDevelopers", "_blank", "width=600,height=400");
-            }, 3000);  // Popup will show after 3 seconds
-        };
-    </script>'''
-
-    # Add ads in HTML files
-    for root, dirs, files in os.walk(clone_dir):
-        for file in files:
-            if file.endswith('.html'):
-                file_path = os.path.join(root, file)
-                try:
-                    # Attempt to read the file with different encodings if necessary
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-
-                    # Insert the ad code before the closing </body> tag
-                    if '</body>' in content:
-                        content = content.replace('</body>', f'<!-- Ads Section -->\n{ad_code}\n{ad_code_2}\n{ad_code_3}\n{popup_ad_code}\n</body>')
-
-                    # Write the modified content back to the file
-                    with open(file_path, 'w', encoding='utf-8', errors='ignore') as f:
-                        f.write(content)
-                    print(f"Ads added to {file_path}")
-
-                except Exception as e:
-                    print(f"Error processing {file_path}: {e}")
-
-# Main function to handle the full process
 def main():
-    # Git URL is passed from the GitHub Actions input or provided by the user
-    git_url = sys.argv[1] if len(sys.argv) > 1 else "https://github.com/learning-zone/website-templates.git"
-    
-    # Step 1: Install required Python modules
-    install_modules()
-
-    # Step 2: Remove old folder (if exists) and create a new one
-    remove_and_create_folder()
-
-    # Step 3: Clone the repository
-    clone_repo(git_url)
-
-    # Step 4: Add ads to the HTML files
-    add_ads_to_html()
+    """Main execution function."""
+    try:
+        # Get repository URL from command line argument
+        git_url = sys.argv[1] if len(sys.argv) > 1 else None
+        
+        # Initialize and run the modifier
+        modifier = WebsiteTemplateModifier(git_url)
+        
+        logger.info("Starting website template modification process")
+        
+        # Clone repository
+        repo_path = modifier.clone_repository()
+        logger.info(f"Repository cloned to: {repo_path}")
+        
+        # Add ads to HTML files
+        modified_files = modifier.add_ads_to_html_files()
+        
+        if not modified_files:
+            logger.error("No files were modified")
+            sys.exit(1)
+        
+        logger.info("Process completed successfully!")
+        sys.exit(0)
+        
+    except Exception as e:
+        logger.error(f"Process failed: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
