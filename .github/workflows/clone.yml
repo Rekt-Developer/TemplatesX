@@ -13,11 +13,6 @@ on:
         required: false
         type: boolean
         default: true
-      branch:
-        description: 'Branch to clone and modify'
-        required: false
-        type: string
-        default: 'main'
 
 jobs:
   modify-templates:
@@ -29,8 +24,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # Shallow clone for faster checkout
-          
+          fetch-depth: 1
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -42,16 +37,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install gitpython beautifulsoup4 pytest requests
 
-      - name: Clone template repository
+      - name: Detect default branch and clone repository
+        id: clone-repo
         run: |
           # Remove any existing template directory
           rm -rf website-templates
           
-          # Clone the specified repository
-          git clone --depth 1 --branch ${{ inputs.branch }} ${{ inputs.git-url }} website-templates
+          # Extract owner and repo name from URL
+          REPO_URL="${{ inputs.git-url }}"
+          REPO_OWNER=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\1/')
+          REPO_NAME=$(echo $REPO_URL | sed -E 's/.*github.com\/([^\/]+)\/([^\/]+)(\.git)?/\2/' | sed 's/.git$//')
+          
+          # Use GitHub API to get default branch
+          DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME" | grep -o '"default_branch": "[^"]*' | cut -d'"' -f4)
+          
+          if [ -z "$DEFAULT_BRANCH" ]; then
+            echo "::error::Failed to detect default branch for repository: $REPO_URL"
+            exit 1
+          fi
+          
+          echo "Default branch is: $DEFAULT_BRANCH"
+          echo "default_branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+          
+          # Clone the repository with the detected default branch
+          git clone --depth 1 --branch "$DEFAULT_BRANCH" "$REPO_URL" website-templates
           
           if [ $? -ne 0 ]; then
-            echo "::error::Failed to clone repository: ${{ inputs.git-url }}"
+            echo "::error::Failed to clone repository: $REPO_URL"
             exit 1
           fi
 
@@ -68,7 +80,7 @@ jobs:
         run: |
           echo "Running tests..."
           python -m pytest test_clone_and_add_ads.py -v
-        continue-on-error: true  # Don't fail the workflow if tests fail
+        continue-on-error: true
 
       - name: Configure Git
         run: |
@@ -98,7 +110,7 @@ jobs:
           - Added responsive ad containers
           - Automated via GitHub Actions
           - Repository: ${{ inputs.git-url }}
-          - Branch: ${{ inputs.branch }}
+          - Branch: ${{ steps.clone-repo.outputs.default_branch }}
           - Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           
           git push origin ${{ github.ref_name }}
@@ -121,7 +133,7 @@ jobs:
           {
             echo "### Template Modification Report"
             echo "- Repository: ${{ inputs.git-url }}"
-            echo "- Branch: ${{ inputs.branch }}"
+            echo "- Default Branch: ${{ steps.clone-repo.outputs.default_branch }}"
             echo "- Run Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
             echo "- Changes Made: ${{ steps.git-check.outputs.changes == 'true' && 'Yes' || 'No' }}"
             
