@@ -37,6 +37,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install gitpython beautifulsoup4 pytest
 
+      - name: Initialize and update submodules (if any)
+        run: |
+          if [ -f .gitmodules ]; then
+            git submodule update --init --recursive
+          else
+            echo ".gitmodules not found, skipping submodule initialization."
+          fi
+          git submodule sync || echo "No submodules to sync."
+        continue-on-error: true  # Allow workflow to continue even if submodule update fails
+
       - name: Run template modification
         id: modify
         run: |
