@@ -15,6 +15,25 @@ jobs:
         uses: actions/checkout@v3
 
       # Step 2: Clone the 'website-templates' repository into the 'website-templates' folder
-      - name: Clone 'website-templates' repository
+      - name: Clone 'website-templates' repository into 'website-templates' folder
         run: |
           git clone https://github.com/learning-zone/website-templates.git website-templates
+
+      # Step 3: Add all files to Git
+      - name: Stage files
+        run: |
+          git add -A  # Stages all files in the current directory
+
+      # Step 4: Commit changes (if any)
+      - name: Commit changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git commit -m "Cloned website-templates into website-templates folder" || echo "No changes to commit"
+
+      # Step 5: Push changes to repository
+      - name: Push changes to repository
+        run: |
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # This allows the action to push changes to your repository
