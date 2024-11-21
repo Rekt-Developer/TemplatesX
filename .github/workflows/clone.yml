@@ -5,7 +5,7 @@ on:
     inputs:
       git-url:
         description: 'GitHub Repository URL to clone (Leave empty for default)'
-        required: false  # This is optional, and if left empty, the default URL will be used
+        required: false  # Optional input
         default: 'https://github.com/learning-zone/website-templates.git'  # Default URL
 
 jobs:
@@ -17,83 +17,25 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Clone the specified GitHub repository into the 'website-templates' folder
-      - name: Clone GitHub repository into 'website-templates' folder
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      # Step 3: Install dependencies and run the clone_and_add_ads.py script
+      - name: Clone Repository and Add Ads
         run: |
-          # Get the Git URL from the input (or default to the predefined URL)
-          GIT_URL="${{ github.event.inputs.git-url }}"
-          
-          # If the URL is empty, use the default URL
-          if [ -z "$GIT_URL" ]; then
-            GIT_URL="https://github.com/learning-zone/website-templates.git"
-          fi
+          python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
 
-          echo "Cloning repository from: $GIT_URL"
-          git clone $GIT_URL website-templates
-          
-      # Step 3: Stage all files from the cloned repository
-      - name: Stage files
-        run: |
-          git add -A  # Stage all files from the cloned repository
-
-      # Step 4: Commit changes to the repository
-      - name: Commit changes
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git commit -m "Cloned website-templates into website-templates folder" || echo "No changes to commit"
-
-      # Step 5: Push changes to repository
-      - name: Push changes to repository
-        run: |
-          git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # This allows the action to push changes to your repository
-
-      # Step 6: Add ads in all HTML files
-      - name: Add ads in all HTML files
-        run: |
-          # The ad code to be inserted
-          ad_code='pompomfor.baby,Popunder_1,24912979,"<script type='\''text/javascript'\'' src='\''//pl25013478.profitablecpmrate.com/66/17/d7/6617d7163a895c776c2db7800c9d3306.js'\''></script>"'
-          ad_code_2='pompomfor.baby,DirectLink_1,24912948,"https://www.profitablecpmrate.com/tgzx4x7534?key=6ef5bb925723a00f5a280cee80cfc569"'
-          ad_code_3='pompomfor.baby,SocialBar_1,24931795,"<script type='\''text/javascript'\'' src='\''//pl25032294.profitablecpmrate.com/0f/9f/9c/0f9f9c5c85bb14b4da3ce62b002175ec.js'\''></script>"'
-          
-          # Search for all HTML files and insert the ad code into each file
-          find website-templates/ -name '*.html' -exec sed -i "/<\/body>/i <!-- Ads Section -->\n$ad_code\n$ad_code_2\n$ad_code_3\n" {} \;
-
-      # Step 7: Modify index.html for ads and placement info
-      - name: Modify index.html for ads and placement info
-        run: |
-          # Ad code for index.html modification
-          index_ad_code='<!-- Ads Section -->\n<pompomfor.baby,Popunder_1,24912979,"<script type='\''text/javascript'\'' src='\''//pl25013478.profitablecpmrate.com/66/17/d7/6617d7163a895c776c2db7800c9d3306.js'\''></script>"\n'
-          index_ad_code+='pompomfor.baby,DirectLink_1,24912948,"https://www.profitablecpmrate.com/tgzx4x7534?key=6ef5bb925723a00f5a280cee80cfc569"\n'
-          index_ad_code+='pompomfor.baby,SocialBar_1,24931795,"<script type='\''text/javascript'\'' src='\''//pl25032294.profitablecpmrate.com/0f/9f/9c/0f9f9c5c85bb14b4da3ce62b002175ec.js'\''></script>"\n'
-
-          # Modify index.html only, inserting the ad code and relevant details
-          find website-templates/ -name 'index.html' -exec sed -i "/<\/body>/i $index_ad_code" {} \;
-
-      # Step 8: Add popup ad for joining Telegram group
-      - name: Add Popup Ad for Telegram Group Join
-        run: |
-          # Popup ad code for the Telegram group join prompt
-          popup_ad_code='<script type="text/javascript">
-            window.onload = function() {
-                setTimeout(function() {
-                    var popup = window.open("https://t.me/RektDevelopers", "_blank", "width=600,height=400");
-                }, 3000);  // Popup will show after 3 seconds
-            };
-          </script>'
-          
-          # Insert the popup ad into each HTML file, ideally before the closing </body> tag
-          find website-templates/ -name '*.html' -exec sed -i "/<\/body>/i $popup_ad_code" {} \;
-
-      # Step 9: Commit and Push Changes with Custom User Details
+      # Step 4: Commit and push changes to repository
       - name: Commit and Push Changes
         run: |
           git config --global user.name "Rekt-Developer"
           git config --global user.email "isaac.likhon@yahoo.com"
-          git add -A  # Stage any new changes (after modifying the HTML files)
-          git commit -m "Added ads and Telegram join pop-up" || echo "No changes to commit"
+          git add .
+          git commit -m "Cloned and added ads to website-templates"
           git push origin main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
