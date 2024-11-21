@@ -13,17 +13,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the current repository
+      # Step 1: Checkout the current repository (using latest actions/checkout version)
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Updated version of actions/checkout
 
-      # Step 2: Set up Python environment
+      # Step 2: Set up Python environment (using latest actions/setup-python version)
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4  # Updated version of actions/setup-python
         with:
           python-version: '3.x'
 
-      # Step 3: Install dependencies and run the clone_and_add_ads.py script
+      # Step 3: Remove any submodule references if present
+      - name: Remove Submodule References (if any)
+        run: |
+          git submodule deinit -f website-templates || echo "No submodule to deinit"
+          git rm --cached website-templates || echo "No submodule to remove"
+          rm -rf .git/modules/website-templates || echo "No submodule metadata to clean up"
+          git commit -m "Cleaned up submodule references" || echo "No submodule reference to commit"
+
+      # Step 4: Install dependencies and run the clone_and_add_ads.py script
       - name: Install dependencies and run the script
         run: |
           # Install the required Python modules
@@ -33,7 +41,7 @@ jobs:
           # Run the Python script to clone and add ads
           python clone_and_add_ads.py "${{ github.event.inputs.git-url }}"
 
-      # Step 4: Commit and push changes to repository
+      # Step 5: Commit and push changes to repository
       - name: Commit and Push Changes
         run: |
           git config --global user.name "Rekt-Developer"
