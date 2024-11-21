@@ -35,7 +35,7 @@ jobs:
         run: |
           python3 generate_index.py
 
-      # Step 6: Commit and push changes
+      # Step 6: Commit and push changes to the repository
       - name: Commit and Push Changes
         run: |
           git add index.html
